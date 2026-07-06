@@ -15,7 +15,7 @@ export class AuthService {
   readonly currentUser = signal<UserProfile | null>({
     uid: 'demo_user_123',
     email: 'resident@ecocommune.org',
-    displayName: 'Aarav Patel',
+    displayName: 'Mayur Makwana',
     householdId: 'demo_user_123',
     neighborhoodId: 'green-valley-subdivision',
     preferredLanguage: 'en',
@@ -31,8 +31,8 @@ export class AuthService {
     // In production: await signInWithPopup(this.auth, new GoogleAuthProvider());
     this.currentUser.set({
       uid: 'google_user_789',
-      email: 'aarav.patel@gmail.com',
-      displayName: 'Aarav Patel (Google)',
+      email: 'mayur.makwana@gmail.com',
+      displayName: 'Mayur Makwana (Google)',
       householdId: 'google_user_789',
       neighborhoodId: 'green-valley-subdivision',
       preferredLanguage: 'en',
