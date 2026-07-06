@@ -1,4 +1,4 @@
-<div class="app-layout" dir="ltr">
+<div *ngIf="authService.isAuthenticated(); else loginView" class="app-layout" dir="ltr">
   <!-- Top Application Navigation Header -->
   <app-header></app-header>
 
@@ -20,3 +20,7 @@
     </div>
   </footer>
 </div>
+
+<ng-template #loginView>
+  <app-login></app-login>
+</ng-template>

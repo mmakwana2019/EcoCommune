@@ -9,20 +9,30 @@ import { UserProfile, LanguageCode } from '../../../../../libs/shared-types';
   providedIn: 'root',
 })
 export class AuthService {
-  /**
-   * Reactive signal holding current authenticated user profile.
-   */
-  readonly currentUser = signal<UserProfile | null>({
-    uid: 'demo_user_123',
-    email: 'resident@ecocommune.org',
-    displayName: 'Mayur Makwana',
-    householdId: 'demo_user_123',
-    neighborhoodId: 'green-valley-subdivision',
-    preferredLanguage: 'en',
-    createdAt: new Date().toISOString(),
-  });
+  readonly currentUser = signal<UserProfile | null>(null);
+  readonly isAuthenticated = signal<boolean>(false);
 
-  readonly isAuthenticated = signal<boolean>(true);
+  /**
+   * Triggers login via email and password credentials.
+   * @param email User email
+   * @param pass User password
+   */
+  async loginWithCredentials(email: string, pass: string): Promise<boolean> {
+    if (email.trim().toLowerCase() === 'mayur.makwana@gmail.com' && pass === 'password123') {
+      this.currentUser.set({
+        uid: 'demo_user_123',
+        email: 'mayur.makwana@gmail.com',
+        displayName: 'Mayur Makwana',
+        householdId: 'demo_user_123',
+        neighborhoodId: 'green-valley-subdivision',
+        preferredLanguage: 'en',
+        createdAt: new Date().toISOString(),
+      });
+      this.isAuthenticated.set(true);
+      return true;
+    }
+    return false;
+  }
 
   /**
    * Triggers Google Sign-In via Firebase Auth SDK.

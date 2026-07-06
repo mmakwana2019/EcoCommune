@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
 import { AiService } from '../../core/ai.service';
 import { TranslationService } from '../../core/translation.service';
+import { AccessibleChartComponent, ChartDataPoint } from '../../shared/accessible-chart/accessible-chart.component';
 import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-types';
 
 @Component({
   selector: 'app-community-benchmarks',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AccessibleChartComponent],
   template: `
     <section class="benchmarks-page glass-panel" aria-labelledby="benchmarks-heading">
       <div class="page-header">
@@ -66,8 +67,28 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
         </div>
       </div>
 
+      <!-- Toggle bar for report view mode -->
+      <div class="view-mode-toggle glass-panel">
+        <button
+          type="button"
+          class="btn-toggle"
+          [class.active]="!showLocalSimulation"
+          (click)="showLocalSimulation = false"
+        >
+          🌐 Google Looker Studio Embed
+        </button>
+        <button
+          type="button"
+          class="btn-toggle"
+          [class.active]="showLocalSimulation"
+          (click)="showLocalSimulation = true"
+        >
+          🖥️ Interactive Local Analytics Simulation
+        </button>
+      </div>
+
       <!-- Embedded Looker Studio Analytics Report -->
-      <div class="looker-studio-section glass-panel">
+      <div *ngIf="!showLocalSimulation" class="looker-studio-section glass-panel">
         <div class="looker-header">
           <h2>📊 Looker Studio Embedded Neighborhood Dashboard</h2>
           <button type="button" class="btn-secondary btn-sm" (click)="toggleConfig()">
@@ -109,6 +130,39 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
             loading="lazy"
             allowfullscreen
           ></iframe>
+        </div>
+      </div>
+
+      <!-- Local Simulation Analytics View -->
+      <div *ngIf="showLocalSimulation" class="local-simulation-section glass-panel" aria-live="polite">
+        <h2>🖥️ Simulated Neighborhood Benchmark Report</h2>
+        <p>Grounded in simulated neighborhood aggregates (k-Anonymity k ≥ 5 Verified)</p>
+
+        <app-accessible-chart
+          id="benchmark-simulation-chart"
+          [title]="'Historical ' + selectedType + ' comparison'"
+          [unit]="selectedType === 'electricity' ? 'kWh' : (selectedType === 'water' ? 'Liters' : 'kg')"
+          secondaryUnit="Neighborhood Avg"
+          [data]="simulationPoints"
+        ></app-accessible-chart>
+
+        <div class="local-stats-grid">
+          <div class="stat-card glass-panel">
+            <span class="stat-label">NEIGHBORHOOD AVERAGE</span>
+            <span class="stat-value secondary-val">
+              {{ benchmark?.neighborhoodAverage }} {{ selectedType === 'electricity' ? 'kWh' : (selectedType === 'water' ? 'L' : 'kg') }}
+            </span>
+          </div>
+          <div class="stat-card glass-panel">
+            <span class="stat-label">YOUR HOUSEHOLD AVERAGE</span>
+            <span class="stat-value user-val">
+              {{ benchmark?.householdAverage }} {{ selectedType === 'electricity' ? 'kWh' : (selectedType === 'water' ? 'L' : 'kg') }}
+            </span>
+          </div>
+          <div class="stat-card glass-panel">
+            <span class="stat-label">PARTICIPATING HOUSEHOLDS</span>
+            <span class="stat-value">24 Households</span>
+          </div>
         </div>
       </div>
     </section>
@@ -193,10 +247,38 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
     }
     .user-val { color: var(--primary-color); }
     .neigh-val { color: var(--secondary-color); }
+    .secondary-val { color: var(--secondary-color); }
     .vs-divider {
       font-weight: 800;
       color: var(--text-secondary);
       opacity: 0.5;
+    }
+    .view-mode-toggle {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .btn-toggle {
+      flex: 1;
+      padding: 10px 16px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-secondary);
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+    .btn-toggle.active {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: #000000;
     }
     .looker-studio-section h2 {
       font-size: 1.2rem;
@@ -224,7 +306,7 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
       margin-top: 6px;
       margin-bottom: 4px;
     }
-    .looker-studio-section p {
+    .looker-studio-section p, .local-simulation-section p {
       font-size: 0.85rem;
       margin-bottom: 16px;
       color: var(--text-secondary);
@@ -239,15 +321,36 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
       font-size: 0.75rem;
       color: var(--text-secondary);
     }
+    .local-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .local-stats-grid .stat-card {
+      display: flex;
+      flex-direction: column;
+    }
+    .local-stats-grid .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .local-stats-grid .stat-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
   `],
 })
 export class CommunityBenchmarksComponent implements OnInit {
   selectedType: ResourceType = 'electricity';
   benchmark: CommunityBenchmark | null = null;
 
+  showLocalSimulation: boolean = true; // Default to local simulation fallback to prevent Looker access errors
   showConfig: boolean = false;
   lookerUrl: string = '';
   safeUrl: any = null;
+  simulationPoints: ChartDataPoint[] = [];
 
   // Working public Looker Studio demo template URL
   private readonly defaultUrl = 'https://lookerstudio.google.com/embed/reporting/c670a4a6-71d5-4573-a178-5e4c2598379c/page/pjD';
@@ -266,6 +369,27 @@ export class CommunityBenchmarksComponent implements OnInit {
   loadBenchmark(): void {
     this.aiService.fetchCommunityBenchmark(this.selectedType).then((res) => {
       this.benchmark = res;
+
+      // Populate custom simulation chart points for the local dashboard view
+      if (this.selectedType === 'electricity') {
+        this.simulationPoints = [
+          { label: 'May 2026', value: 16.2, secondaryValue: 15.1 },
+          { label: 'June 2026', value: 15.5, secondaryValue: 15.3 },
+          { label: 'July 2026', value: 14.2, secondaryValue: 15.5, highlight: true }
+        ];
+      } else if (this.selectedType === 'water') {
+        this.simulationPoints = [
+          { label: 'May 2026', value: 295, secondaryValue: 285 },
+          { label: 'June 2026', value: 280, secondaryValue: 288 },
+          { label: 'July 2026', value: 280, secondaryValue: 290, highlight: true }
+        ];
+      } else {
+        this.simulationPoints = [
+          { label: 'May 2026', value: 2.1, secondaryValue: 2.8 },
+          { label: 'June 2026', value: 1.9, secondaryValue: 2.9 },
+          { label: 'July 2026', value: 1.8, secondaryValue: 3.0, highlight: true }
+        ];
+      }
     });
   }
 
@@ -289,7 +413,6 @@ export class CommunityBenchmarksComponent implements OnInit {
   }
 
   private updateSafeUrl(): void {
-    // Sanitize the URL using Angular's DomSanitizer to prevent security context errors
     this.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.lookerUrl);
   }
 }

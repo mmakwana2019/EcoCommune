@@ -55,6 +55,9 @@ import { LanguageSelectorComponent } from '../language-selector/language-selecto
         <div class="user-profile" *ngIf="authService.currentUser() as user">
           <span class="user-avatar" aria-hidden="true">👤</span>
           <span class="user-name">{{ user.displayName }}</span>
+          <button type="button" class="btn-logout" (click)="authService.logout()" aria-label="Sign Out">
+            🔒 Logout
+          </button>
         </div>
       </div>
     </header>
@@ -132,6 +135,21 @@ import { LanguageSelectorComponent } from '../language-selector/language-selecto
       border-radius: 20px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       font-size: 0.85rem;
+    }
+    .btn-logout {
+      background: transparent;
+      border: 1px solid rgba(255, 23, 68, 0.4);
+      color: #ff1744;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-left: 6px;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover {
+      background: rgba(255, 23, 68, 0.15);
+      border-color: #ff1744;
     }
   `],
 })
