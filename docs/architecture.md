@@ -1,5 +1,7 @@
 # EcoCommune Architecture Specification
 
+![EcoCommune High-Resolution System Architecture Diagram](file:///d:/AI-2026/GenAIAcademy/EcoCommune/EcoCommune-Code/docs/system_architecture_diagram.png)
+
 ## Overview
 **EcoCommune** is a production-grade web application for the theme *"AI for Better Living and Smarter Communities"*. It enables household and neighborhood-level energy (kWh), water (liters), and waste (kg by category) optimization.
 
