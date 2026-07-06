@@ -1,35 +1,45 @@
-# Testing Guide
+# EcoCommune Testing Specification
 
-## Unit Tests
+## 1. Automated Test Execution
 
-### Cloud Functions
-We use Jest for testing Cloud Functions.
-1. `cd functions`
-2. `npm install`
-3. Run `npm run test`
-*Coverage requirement: At least 75% statement coverage, specifically testing the happy path, invalid inputs (Zod schema validation), and unauthenticated access rejections.*
+### Root Monorepo Commands
+- Run all Cloud Function unit tests:
+  ```bash
+  npm run test
+  ```
+- Run Firestore Security Rules emulator tests:
+  ```bash
+  npm run test:rules
+  ```
+- Run Angular frontend unit tests:
+  ```bash
+  npm run test:web
+  ```
+- Run code quality linter checks:
+  ```bash
+  npm run lint
+  ```
 
-### Angular App
-We use Karma/Jasmine (default Angular scaffold) for frontend tests.
-1. `cd apps/web`
-2. Run `npm run test`
+### Test Coverage Targets
+We maintain a strict code coverage target:
+- **Minimum Statement Coverage**: **75%** across all Cloud Functions and Angular services.
+- **Rules Coverage**: **100%** coverage for read/write denial boundaries in `firestore.rules`.
 
-## Integration Tests (Firestore Security Rules)
-We use the `@firebase/rules-unit-testing` library to ensure data isolation.
-1. Start the emulators: `firebase emulators:start`
-2. In another terminal, run `npm run test:rules`
-This will verify that `Alice` cannot read `Bob`'s resource logs.
+---
 
-## Manual QA Checklist
+## 2. AI Grounding Manual QA Checklist
+To ensure the Vertex AI (Gemini 1.5) RAG conversational assistant does not fabricate numbers or hallucinate context:
 
-### AI Grounding Verification
-To ensure the Gemini assistant is properly grounded via RAG and not hallucinating:
-- [ ] Log a unique electricity value (e.g., `432.1 kWh`) for a specific date.
-- [ ] Ask the Conversational Assistant: "How much electricity did I use on [Date]?"
-- [ ] Verify the assistant responds with `432.1 kWh` and does not provide an external average or fabricated number.
-- [ ] Ask the assistant: "Why did my bill spike?" and verify its explanation references only the data present in your recent logs (e.g., if water usage was high, it mentions water, not unlogged gas usage).
+1. **Verify Empty-State RAG Response**:
+   - Create a clean test user account with zero logged records.
+   - Send query: *"Why did my water usage spike this month?"*
+   - **Expected Behavior**: The assistant must output a polite fallback message indicating no logs were found, rather than fabricating consumption values.
 
-### Accessibility Verification
-- [ ] Run Lighthouse Accessibility audit on `localhost:4200` (Target: 100).
-- [ ] Navigate the entire dashboard and logging forms using only the `Tab` key.
-- [ ] Activate VoiceOver (Mac) or NVDA (Windows) and ensure form validation errors are announced immediately via `aria-live` regions.
+2. **Verify Correct RAG Association**:
+   - Log exactly one record: `electricity = 45.2 kWh` on `2026-07-06`.
+   - Ask the chat assistant: *"Tell me about my electricity logs."*
+   - **Expected Behavior**: Response must strictly reference `45.2 kWh` and `2026-07-06` as documented in the "Verified Grounding Sources" metadata box.
+
+3. **Verify Context Boundary Rejection**:
+   - Ask the chat assistant: *"What is my neighborhood's water average?"*
+   - **Expected Behavior**: Response must draw only on neighborhood aggregates or indicate lack of authorization rather than fabricating other household metrics.

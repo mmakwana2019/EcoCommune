@@ -2,9 +2,20 @@
   "name": "ecocommune-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "EcoCommune - AI for Better Living and Smarter Communities",
+  "description": "EcoCommune - AI for Better Living and Smarter Communities (Google Tech Stack)",
   "scripts": {
-    "build": "cd apps/web && npm install && npm run build",
-    "start": "cd apps/web && npm start"
+    "build": "cd apps/web && npm run build",
+    "build:functions": "cd functions && npm run build",
+    "start": "cd apps/web && npm start",
+    "test": "cd functions && npm run test",
+    "test:rules": "cd functions && npm run test:rules",
+    "test:web": "cd apps/web && npm run test",
+    "lint": "eslint . --ext .ts"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.5"
   }
 }

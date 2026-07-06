@@ -1,82 +1,22 @@
-<main class="dashboard-container">
-  <header class="glass-panel header">
-    <h1>EcoCommune</h1>
-    <p>AI for Better Living and Smarter Communities</p>
-  </header>
+<div class="app-layout" dir="ltr">
+  <!-- Top Application Navigation Header -->
+  <app-header></app-header>
 
-  <div class="grid-layout">
-    <!-- Log Resource Section -->
-    <section class="glass-panel log-section">
-      <h2>Log Resource</h2>
-      <form (submit)="logResource($event)">
-        <div class="form-group">
-          <label for="resourceType">Resource Type</label>
-          <select id="resourceType" class="form-control" name="type">
-            <option value="electricity">Electricity (kWh)</option>
-            <option value="water">Water (Liters)</option>
-            <option value="waste">Waste (kg)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="amount">Amount</label>
-          <input type="number" id="amount" class="form-control" name="amount" placeholder="e.g. 15.5" step="0.1" required>
-        </div>
-        <button type="submit" class="btn-primary">Log Data</button>
-      </form>
-    </section>
+  <!-- Main View Container -->
+  <main id="main-content" class="main-container" role="main">
+    <router-outlet></router-outlet>
+  </main>
 
-    <!-- AI Insights Section -->
-    <section class="glass-panel insights-section">
-      <h2>✨ AI Insights Engine</h2>
-      <div *ngIf="insights.length > 0; else loadingInsights">
-        <div class="insight-card" *ngFor="let insight of insights">
-          <h3>{{ insight.title }}</h3>
-          <p>{{ insight.description }}</p>
-          <ul>
-            <li *ngFor="let step of insight.actionableSteps">{{ step }}</li>
-          </ul>
-        </div>
-      </div>
-      <ng-template #loadingInsights>
-        <p>Analyzing your patterns...</p>
-      </ng-template>
-    </section>
-
-    <!-- Community Benchmark Section -->
-    <section class="glass-panel benchmark-section">
-      <h2>🌍 Community Benchmarks</h2>
-      <div *ngIf="benchmarks.length > 0; else loadingBenchmarks">
-        <div class="benchmark-card" *ngFor="let benchmark of benchmarks">
-          <h3>{{ benchmark.resourceType | titlecase }}</h3>
-          <p>Neighborhood Average: {{ benchmark.averageConsumption }}</p>
-          <div class="progress-bar-container">
-            <div class="progress-bar" [style.width.%]="benchmark.percentile" 
-                 [style.background]="benchmark.percentile < 50 ? 'var(--primary-color)' : '#ff5252'">
-            </div>
-          </div>
-          <p class="percentile-text">
-            You use {{ benchmark.percentile < 50 ? 'less' : 'more' }} than {{ benchmark.percentile < 50 ? 100 - benchmark.percentile : benchmark.percentile }}% of your neighbors.
-          </p>
-        </div>
-      </div>
-      <ng-template #loadingBenchmarks>
-        <p>Loading community data...</p>
-      </ng-template>
-    </section>
-  </div>
-
-  <!-- Chatbot Widget -->
-  <div class="chat-widget glass-panel">
-    <div class="chat-header">
-      Ask Gemini Assistant
-    </div>
-    <div class="chat-body" #chatBody>
-      <div class="message" *ngFor="let msg of chatMessages" [ngClass]="msg.role">
-        {{ msg.text }}
+  <!-- Footer -->
+  <footer class="app-footer glass-panel" role="contentinfo">
+    <div class="footer-content">
+      <p>© 2026 EcoCommune — Production-Grade AI for Better Living & Smarter Communities.</p>
+      <div class="footer-badges">
+        <span class="g-badge">Google Cloud Platform</span>
+        <span class="g-badge">Vertex AI Gemini 1.5</span>
+        <span class="g-badge">BigQuery ML</span>
+        <span class="g-badge">Firestore k-Anonymity (k≥5)</span>
       </div>
     </div>
-    <div class="chat-input">
-      <input type="text" class="form-control" placeholder="Ask why your bill spiked..." (keyup.enter)="sendMessage($any($event))">
-    </div>
-  </div>
-</main>
+  </footer>
+</div>

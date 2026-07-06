@@ -1,36 +1,61 @@
-# Setup Instructions
+# EcoCommune Setup & Deployment Guide
 
 ## Prerequisites
-- Node.js v22 or v24
-- Angular CLI v19
-- Firebase CLI
-- A Google Cloud Platform (GCP) Project with billing enabled
+- **Node.js**: v20 LTS or higher
+- **Firebase CLI**: `npm install -g firebase-tools`
+- **Google Cloud SDK**: `gcloud` CLI installed and authenticated
+- **Terraform** (optional): v1.5+ for IaC provisioning
 
-## Local Development
+## 1. GCP Project & Secret Manager Initialization
+1. Create a Google Cloud Project or select an existing one:
+   ```bash
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+2. Enable required Google Cloud APIs:
+   ```bash
+   gcloud services enable \
+     firestore.googleapis.com \
+     bigquery.googleapis.com \
+     aiplatform.googleapis.com \
+     translate.googleapis.com \
+     secretmanager.googleapis.com \
+     cloudfunctions.googleapis.com \
+     firebaseappcheck.googleapis.com
+   ```
+3. Store production secrets in Google Secret Manager:
+   ```bash
+   gcloud secrets create ecocommune-vertex-ai-key --replication-policy="automatic"
+   ```
 
-1. **Install Dependencies:**
-   - For frontend: `cd apps/web && npm install`
-   - For backend: `cd functions && npm install`
+## 2. BigQuery & BigQuery ML Provisioning
+Execute the SQL schema definitions in your GCP console or via `bq` CLI:
+```bash
+bq query --use_legacy_sql=false < bigquery/schema.sql
+bq query --use_legacy_sql=false < bigquery/model.sql
+```
 
-2. **Firebase Emulator Setup (Prototype Mode):**
-   - We use the Firebase Emulator Suite to run Firestore, Auth, and Functions locally without incurring cloud costs.
-   - Run `firebase emulators:start` from the root directory.
+## 3. Local Emulator Suite Setup
+Run the Firebase Local Emulator Suite for offline development:
+```bash
+firebase emulators:start
+```
+Emulators initialized:
+- Firestore: `http://localhost:8080`
+- Cloud Functions: `http://localhost:5001`
+- Hosting: `http://localhost:5000`
+- Emulator UI: `http://localhost:4000`
 
-3. **Running the Frontend:**
-   - In a new terminal, run `cd apps/web && npm run start`
-   - The application will be available at `http://localhost:4200`
+## 4. Angular Frontend Development & Deployment
+Install dependencies and launch dev server:
+```bash
+cd apps/web
+npm install
+npm start
+```
+Open `http://localhost:4200` in your web browser.
 
-## GCP Deployment (Production)
-
-1. **Enable APIs:**
-   Ensure the following APIs are enabled in your GCP project:
-   - Vertex AI API
-   - BigQuery API
-   - Cloud Translation API
-
-2. **Secret Manager:**
-   - Add any necessary API keys or sensitive configurations to Google Secret Manager.
-   - Grant the App Engine Default Service Account (used by Cloud Functions) access to these secrets.
-
-3. **Deploy:**
-   - Run `firebase deploy` to deploy Hosting, Firestore Rules, Indexes, and Cloud Functions.
+Deploy to Firebase Hosting:
+```bash
+npm run build
+firebase deploy --only hosting
+```

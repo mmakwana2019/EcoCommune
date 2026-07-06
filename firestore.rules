@@ -1,24 +1,41 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if the user is authenticated
+
+    /**
+     * EcoCommune Security Rules Rationale:
+     * 1. Data Isolation Principle: A logged-in resident can ONLY read and write documents inside their own
+     *    household path: `/users/{userId}/**`.
+     * 2. k-Anonymity Protection: Direct client access to other households' raw resource logs or insights is denied.
+     *    Community benchmark comparisons are aggregated strictly server-side by Cloud Functions.
+     * 3. App Check Verification: Enforced in production to block untrusted client origin access.
+     */
+
+    // Helper: Verify if the user is authenticated via Firebase Auth
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to ensure user can only access their own data
+    // Helper: Verify if the authenticated user owns the target userId path
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Match all documents under users/{userId}
+    // Per-user isolated documents & subcollections (/users/{userId}/**)
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && isOwner(userId);
-      
-      // Match nested collections (e.g., resourceLogs, insights)
-      match /{document=**} {
-        allow read, write: if isAuthenticated() && isOwner(userId);
+      allow read, write: if isOwner(userId);
+
+      // Matches all nested subcollections: resourceLogs, insights, insights_cache, chat_history
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
       }
+    }
+
+    // Read-only access for pre-aggregated, anonymized neighborhood benchmark metadata
+    match /neighborhood_aggregates/{neighborhoodId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only updated server-side by Cloud Functions Admin SDK
     }
   }
 }

@@ -1,34 +1,68 @@
-# EcoCommune Architecture
+# EcoCommune Architecture Specification
 
-EcoCommune is designed entirely on Google Cloud Platform to ensure seamless integration, high security, and performance.
+## Overview
+**EcoCommune** is a production-grade web application for the theme *"AI for Better Living and Smarter Communities"*. It enables household and neighborhood-level energy (kWh), water (liters), and waste (kg by category) optimization.
 
-## Data Flow & Architecture
+## Mandated Google Stack Architecture
 
-1. **Frontend (Angular on Firebase Hosting):**
-   - The user interacts with the Angular web app.
-   - Authentication is handled via Firebase Authentication.
-   - The app reads directly from Cloud Firestore using the Firebase JS SDK, governed by strict Firestore Security Rules.
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│                                Angular 19 Web App (Firebase Hosting)                      │
+│ ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────────┐ ┌─────────────┐ │
+│ │ Resource Logging UI   │ │  AI Insights Engine  │ │ BigQuery ML View   │ │ Benchmarks  │ │
+│ └───────────────────────┘ └──────────────────────┘ └────────────────────┘ └─────────────┘ │
+└─────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                              │ Firebase Auth (Google Sign-In + Email Link)
+                                              │ Firebase App Check
+                                              ▼
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│                         Cloud Functions for Firebase (2nd Gen TypeScript)                 │
+│ ┌────────────────────────┐ ┌─────────────────────────┐ ┌────────────────────────────────┐ │
+│ │  Zod Input Validator   │ │  24-Hr Firestore Cache  │ │  k-Anonymity Aggregator (k>=5) │ │
+│ └────────────────────────┘ └─────────────────────────┘ └────────────────────────────────┘ │
+└───────────┬─────────────────────────────────┬──────────────────────────────┬──────────────┘
+            │                                 │                              │
+            ▼                                 ▼                              ▼
+┌─────────────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
+│     Cloud Firestore     │       │     Vertex AI SDK      │       │  BigQuery & BQ ML      │
+│ (Operational Store)     │       │  (Gemini 1.5 & RAG)    │       │ (ARIMA_PLUS Model)     │
+└─────────────────────────┘       └────────────────────────┘       └────────────────────────┘
+            │                                 │                              │
+            ▼                                 ▼                              ▼
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│      Google Cloud Operations Suite, Cloud Translation API, Secret Manager, IaC (Terraform)│
+└───────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
-2. **Resource Logging & Backend (Cloud Functions):**
-   - When a user logs a resource (energy/water/waste), the frontend calls a Cloud Function (`processResourceLog`).
-   - The Cloud Function validates the payload using Zod.
-   - The function saves the log to Firestore.
-   - The function invokes the **AI Insights Engine**.
+## System Component Matrix
 
-3. **AI Insights Engine & Chatbot (Vertex AI):**
-   - The backend uses the Vertex AI Node.js SDK to send context (the user's recent logs) and a prompt to Gemini 1.5 Pro.
-   - The generated insights are stored in Firestore, which the Angular app receives via real-time listeners.
-   - The Conversational Assistant uses Vertex AI Search/RAG Engine to ground the chat responses in the user's historical data, preventing hallucinations.
+| Architectural Layer | Mandated Technology | Function in EcoCommune |
+| :--- | :--- | :--- |
+| **Frontend Framework** | Angular 19 (Standalone Components) | Single-page application with signals state management, WCAG 2.1 AA accessibility, and OnPush change detection |
+| **Hosting** | Firebase Hosting | Production CDN hosting for Angular client artifacts |
+| **Authentication** | Firebase Authentication | Google Sign-In and passwordless email link authentication |
+| **Operational Store** | Cloud Firestore | Isolated document storage per household (`/users/{userId}/**`) |
+| **Analytics Warehouse**| BigQuery | Partitioned (`log_date`) and clustered (`resource_type`, `household_id`) resource logging dataset |
+| **Backend Functions** | Cloud Functions v2 (TypeScript) | Serverless API runtime with Zod input validation and server-side aggregation |
+| **AI LLM Engine** | Vertex AI (Gemini 1.5 Flash/Pro) | Weekly personalized reduction insights and grounded RAG conversational assistant |
+| **Time-Series ML** | BigQuery ML (`ARIMA_PLUS`) | 30-day consumption forecasting and continuous leak anomaly detection |
+| **Translation** | Cloud Translation API | Dynamic multilingual translation support for English, Hindi, and Marathi |
+| **Analytics Visualization** | Looker Studio | Embedded community benchmark reports sourced from BigQuery |
+| **Secret Management** | Google Secret Manager | Secure storage for API keys and service account credentials |
+| **Operations** | Cloud Operations Suite | Cloud Logging, Cloud Monitoring, and Error Reporting |
 
-4. **Forecasting (BigQuery ML):**
-   - Operational data is continuously exported from Firestore to BigQuery.
-   - A BigQuery ML `ARIMA_PLUS` model runs scheduled queries to forecast next-month consumption based on time-series data.
-   - These forecasts are materialized into a BigQuery table, which Looker Studio or Cloud Functions can query for dashboard presentation.
+## Security & Privacy Rationale
 
-5. **Community Benchmarking:**
-   - Raw user data is never exposed. A scheduled Cloud Function or BigQuery query aggregates data at the neighborhood level (k-anonymity enforced, e.g., >5 households).
-   - Looker Studio connects to BigQuery to visualize the aggregated percentiles and benchmarks.
+### 1. Firestore Security Rules & Per-User Isolation
+Every household document is stored under `/users/{userId}/resourceLogs/{logId}`. Firestore Security Rules enforce strict ownership:
+`request.auth.uid == userId`
+Clients cannot read or write another household's raw records.
 
-6. **Translation (Cloud Translation API):**
-   - Static strings are handled by Angular i18n.
-   - Dynamic AI responses can be translated on-the-fly using the Cloud Translation API if the user's preferred language is non-English.
+### 2. Server-Side k-Anonymity (k ≥ 5) Threshold
+To prevent re-identification of individual households in neighborhood comparison dashboards:
+- Community benchmark metrics are aggregated server-side only in Cloud Functions and BigQuery views (`HAVING COUNT(DISTINCT household_id) >= 5`).
+- If a neighborhood contains fewer than 5 registered households, detailed percentiles are suppressed and a safe baseline is returned.
+
+### 3. Cold-Start Optimization & AI Response Caching
+- Heavy Google Cloud SDK clients (`VertexAI`, `TranslationServiceClient`) are lazy-loaded inside Cloud Function invocation handlers.
+- Weekly AI Insight recommendations are stored in a 24-hour TTL Firestore cache (`/users/{userId}/insights_cache/latest`) to avoid redundant Vertex AI calls.
