@@ -1,0 +1,11 @@
+{
+  "buildCommand": "cd apps/web && npm install && npm run build",
+  "outputDirectory": "apps/web/dist/web/browser",
+  "framework": "angular",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

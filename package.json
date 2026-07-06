@@ -1,0 +1,10 @@
+{
+  "name": "ecocommune-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EcoCommune - AI for Better Living and Smarter Communities",
+  "scripts": {
+    "build": "cd apps/web && npm install && npm run build",
+    "start": "cd apps/web && npm start"
+  }
+}
