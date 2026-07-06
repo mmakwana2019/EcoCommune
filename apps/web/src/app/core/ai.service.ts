@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { ResourceService } from './resource.service';
 import {
   AIInsight,
   PredictiveForecast,
@@ -126,6 +127,8 @@ export class AiService {
     };
   }
 
+  constructor(private resourceService: ResourceService) {}
+
   /**
    * Sends user prompt to Vertex AI Gemini RAG assistant grounded in logged resource context.
    * @param prompt User question string
@@ -133,20 +136,63 @@ export class AiService {
    */
   async sendChatMessage(prompt: string, language: LanguageCode = 'en'): Promise<ChatMessage> {
     const lower = prompt.toLowerCase();
+    const isHindi = language === 'hi' || lower.includes('मेरा बिजली बिल क्यों बढ़ा') || lower.includes('बिजली');
+    const isElectricity = lower.includes('electricity') || lower.includes('elec') || lower.includes('बिजली') || lower.includes('bill') || lower.includes('बिल') || lower.includes('बढ़ा');
+    const isWater = lower.includes('water') || lower.includes('पानी') || lower.includes('spike') || lower.includes('leak');
+
+    const logs = this.resourceService.logs();
+    // Filter last 30 logs for grounding
+    const groundedLogs = logs.slice(0, 30).map(l => ({
+      logDate: l.date,
+      resourceType: l.type,
+      amount: l.amount,
+      unit: l.unit
+    }));
+
     let reply = '';
 
-    if (lower.includes('spike') || lower.includes('water') || lower.includes('bill')) {
-      reply = 'Based on your logged data, your water usage reached 280 Liters on 2026-07-05. This spike is 25% above your weekly average. Common causes include lawn irrigation or pipe seepage.';
-    } else if (lower.includes('save') || lower.includes('reduce') || lower.includes('tip')) {
-      reply = 'Here are top actions grounded in your consumption logs: 1) Shift laundry and dishwasher to off-peak morning hours. 2) Upgrade to low-flow aerators. 3) Separate organic compost from landfill waste.';
-    } else {
-      reply = `Hello! I am your EcoCommune AI assistant, grounded directly in your household's logged resource data. I see 5 verified logs on file. How can I help optimize your energy or water today?`;
-    }
+    if (isElectricity) {
+      const elecLogs = logs.filter(l => l.type === 'electricity').slice(0, 30);
+      if (elecLogs.length > 0) {
+        const total = elecLogs.reduce((acc, l) => acc + l.amount, 0);
+        const avg = Math.round((total / elecLogs.length) * 10) / 10;
+        const peakLog = elecLogs.reduce((prev, curr) => (prev.amount > curr.amount) ? prev : curr, elecLogs[0]);
+        const pct = Math.round(((peakLog.amount - avg) / avg) * 100);
 
-    if (language === 'hi') {
-      reply = `[हिंदी] ${reply}`;
-    } else if (language === 'mr') {
-      reply = `[मराठी] ${reply}`;
+        if (isHindi) {
+          reply = `आपके पिछले 30 दिनों के बिजली लॉग्स के विश्लेषण के अनुसार, आपका बिजली का बिल बढ़ गया है क्योंकि ${peakLog.date} को आपकी बिजली की खपत ${peakLog.amount} ${peakLog.unit} तक पहुंच गई थी, जो आपके सामान्य दैनिक औसत ${avg} ${peakLog.unit} से लगभग ${pct}% अधिक है। इस पीक को कम करने के लिए दोपहर में एयर कंडीशनर के तापमान को बढ़ाएं।`;
+        } else {
+          reply = `Based on your last 30-day readings, your electricity bill spiked because on ${peakLog.date} your usage reached ${peakLog.amount} ${peakLog.unit}, which is ${pct}% higher than your daily average of ${avg} ${peakLog.unit}. Try shifting heavy appliance usage to off-peak hours.`;
+        }
+      } else {
+        reply = isHindi
+          ? 'आपके पिछले 30 दिनों के बिजली के लॉग उपलब्ध नहीं हैं।'
+          : 'No electricity logs found for the past 30 days.';
+      }
+    } else if (isWater) {
+      const waterLogs = logs.filter(l => l.type === 'water').slice(0, 30);
+      if (waterLogs.length > 0) {
+        const total = waterLogs.reduce((acc, l) => acc + l.amount, 0);
+        const avg = Math.round(total / waterLogs.length);
+        const peakLog = waterLogs.reduce((prev, curr) => (prev.amount > curr.amount) ? prev : curr, waterLogs[0]);
+        const pct = Math.round(((peakLog.amount - avg) / avg) * 100);
+
+        if (isHindi) {
+          reply = `आपके पानी के उपयोग के रिकॉर्ड के अनुसार, ${peakLog.date} को आपकी खपत ${peakLog.amount} ${peakLog.unit} पर पहुंच गई थी, जो आपके दैनिक औसत ${avg} ${peakLog.unit} से ${pct}% अधिक है। कृपया बाहरी पाइपलाइनों में रिसाव की जांच करें।`;
+        } else {
+          reply = `Based on your water logs, your usage spiked to ${peakLog.amount} ${peakLog.unit} on ${peakLog.date}, which is ${pct}% higher than your daily average of ${avg} ${peakLog.unit}. Check for potential leakage.`;
+        }
+      } else {
+        reply = isHindi ? 'आपके पास पानी का कोई लॉग उपलब्ध नहीं है।' : 'No water logs found.';
+      }
+    } else if (lower.includes('save') || lower.includes('reduce') || lower.includes('tip') || lower.includes('बचत')) {
+      reply = isHindi
+        ? 'संसाधन बचाने के लिए: १) भारी उपकरणों का उपयोग पीक आवर्स के बाहर करें। २) कम प्रवाह वाले फव्वारे लगाएं। ३) गीले कचरे को खाद में बदलें।'
+        : 'Top recommendations: 1) Run heavy loads off-peak. 2) Upgrade to low-flow aerators. 3) Segregate organic compost.';
+    } else {
+      reply = isHindi
+        ? `नमस्ते! मैं आपका इकोकम्यून एआई सहायक हूँ। आपके २ महीने के डेटाबेस में ${logs.length} लॉग्स सुरक्षित हैं। मैं आपके बिजली, पानी या कचरे के विश्लेषण में कैसे मदद कर सकता हूँ?`
+        : `Hello! I am your EcoCommune AI assistant. You have ${logs.length} logged resource records over the past 2 months. How can I help you analyze your energy, water, or waste today?`;
     }
 
     return {
@@ -154,10 +200,7 @@ export class AiService {
       sender: 'assistant',
       text: reply,
       timestamp: new Date().toISOString(),
-      groundedSources: [
-        { logDate: '2026-07-05', resourceType: 'water', amount: 280, unit: 'Liters' },
-        { logDate: '2026-07-06', resourceType: 'electricity', amount: 14.2, unit: 'kWh' },
-      ],
+      groundedSources: groundedLogs.slice(0, 5) // Return up to 5 grounded sources as metadata citation
     };
   }
 }
