@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer } from '@angular/platform-browser';
 import { AiService } from '../../core/ai.service';
 import { TranslationService } from '../../core/translation.service';
 import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-types';
@@ -67,17 +68,46 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
 
       <!-- Embedded Looker Studio Analytics Report -->
       <div class="looker-studio-section glass-panel">
-        <h2>📊 Looker Studio Embedded Neighborhood Dashboard</h2>
+        <div class="looker-header">
+          <h2>📊 Looker Studio Embedded Neighborhood Dashboard</h2>
+          <button type="button" class="btn-secondary btn-sm" (click)="toggleConfig()">
+            ⚙️ {{ showConfig ? 'Hide Config' : 'Configure Report URL' }}
+          </button>
+        </div>
         <p>Source: Google BigQuery Partitioned Data Warehouse (k-Anonymity Verified)</p>
 
+        <!-- Config Input Bar -->
+        <div class="config-bar glass-panel" *ngIf="showConfig" aria-live="polite">
+          <label for="looker-url-input">Looker Studio Embed URL:</label>
+          <div class="input-row">
+            <input
+              id="looker-url-input"
+              type="text"
+              class="form-control"
+              [(ngModel)]="lookerUrl"
+              placeholder="e.g., https://lookerstudio.google.com/embed/reporting/..."
+              (change)="saveUrl()"
+            />
+            <button type="button" class="btn-primary" (click)="resetToDefault()">
+              Reset Default
+            </button>
+          </div>
+          <small class="text-muted">
+            Configure report sharing settings to 'Public' or 'Anyone with link can view' to avoid access errors.
+          </small>
+        </div>
+
         <div class="looker-iframe-placeholder">
+          <!-- Dynamically bind the safe sanitized URL -->
           <iframe
-            src="https://lookerstudio.google.com/embed/reporting/00000000-0000-0000-0000-000000000000/page/p_ecocommune"
+            *ngIf="safeUrl"
+            [src]="safeUrl"
             title="EcoCommune Looker Studio Community Report"
             width="100%"
-            height="320"
+            height="360"
             style="border: 0; border-radius: 8px;"
             loading="lazy"
+            allowfullscreen
           ></iframe>
         </div>
       </div>
@@ -171,16 +201,43 @@ import { CommunityBenchmark, ResourceType } from '../../../../../../libs/shared-
     .looker-studio-section h2 {
       font-size: 1.2rem;
       color: var(--text-primary);
+      margin: 0;
+    }
+    .looker-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.8rem;
+    }
+    .config-bar {
+      margin: 12px 0;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .input-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
       margin-bottom: 4px;
     }
     .looker-studio-section p {
       font-size: 0.85rem;
       margin-bottom: 16px;
+      color: var(--text-secondary);
     }
     .looker-iframe-placeholder {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
       overflow: hidden;
+      min-height: 360px;
+    }
+    .text-muted {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
     }
   `],
 })
@@ -188,18 +245,51 @@ export class CommunityBenchmarksComponent implements OnInit {
   selectedType: ResourceType = 'electricity';
   benchmark: CommunityBenchmark | null = null;
 
+  showConfig: boolean = false;
+  lookerUrl: string = '';
+  safeUrl: any = null;
+
+  // Working public Looker Studio demo template URL
+  private readonly defaultUrl = 'https://lookerstudio.google.com/embed/reporting/c670a4a6-71d5-4573-a178-5e4c2598379c/page/pjD';
+
   constructor(
     private aiService: AiService,
     public translationService: TranslationService,
+    private sanitizer: DomSanitizer,
   ) {}
 
   ngOnInit(): void {
     this.loadBenchmark();
+    this.loadUrl();
   }
 
   loadBenchmark(): void {
     this.aiService.fetchCommunityBenchmark(this.selectedType).then((res) => {
       this.benchmark = res;
     });
+  }
+
+  toggleConfig(): void {
+    this.showConfig = !this.showConfig;
+  }
+
+  loadUrl(): void {
+    this.lookerUrl = localStorage.getItem('looker_embed_url') || this.defaultUrl;
+    this.updateSafeUrl();
+  }
+
+  saveUrl(): void {
+    localStorage.setItem('looker_embed_url', this.lookerUrl);
+    this.updateSafeUrl();
+  }
+
+  resetToDefault(): void {
+    this.lookerUrl = this.defaultUrl;
+    this.saveUrl();
+  }
+
+  private updateSafeUrl(): void {
+    // Sanitize the URL using Angular's DomSanitizer to prevent security context errors
+    this.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.lookerUrl);
   }
 }
